@@ -1,0 +1,946 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WIFI & FEMTO Incident Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels@2.2.0/dist/chartjs-plugin-datalabels.min.js"></script>
+    <style>
+        body { background: #f0f2f5; font-family: sans-serif; }
+        .card { box-shadow: 0 2px 4px rgba(0,0,0,0.05); border: none; margin-bottom: 20px; border-radius: 8px; }
+        .filter-section { background: #ffffff; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .table-container { max-height: 450px; overflow-y: auto; }
+        .metric-card { background: #ffffff; padding: 15px; border-radius: 8px; text-align: center; }
+        .metric-value { font-size: 24px; font-weight: bold; color: #0d6efd; }
+
+        .dropdown-checkbox-container { position: relative; }
+        .dropdown-toggle-custom { background: #fff; border: 1px solid #ced4da; padding: 0.25rem 0.5s; font-size: 0.875rem; text-align: left; width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .dropdown-menu-custom { position: absolute; top: 100%; left: 0; z-index: 1000; display: none; background: #fff; border: 1px solid rgba(0,0,0,.15); padding: 10px; width: 100%; max-height: 220px; overflow-y: auto; border-radius: 0.375rem; box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15); }
+        .dropdown-menu-custom.show { display: block; }
+
+        tr.row-pending-within td { background-color: #d1e7dd !important; color: #0f5132 !important; }
+        tr.row-pending-less1 td { background-color: #f8f9fa !important; color: #383d41 !important; }
+        tr.row-pending-1mo td { background-color: #cfe2ff !important; color: #084298 !important; }
+        tr.row-pending-2mo td { background-color: #fff3cd !important; color: #664d03 !important; }
+        tr.row-pending-4mo td { background-color: #ffe5d0 !important; color: #8f3b00 !important; }
+        tr.row-pending-6mo td { background-color: #f8d7da !important; color: #842029 !important; }
+        tr.row-pending-8mo td { background-color: #f5c2c7 !important; color: #58151c !important; }
+        tr.row-pending-1year td { background-color: #b02a37 !important; color: #ffffff !important; }
+
+        .nav-tabs .nav-link.active { font-weight: bold; background-color: #0d6efd !important; color: white !important; }
+        .nav-tabs .nav-link { color: #495057; cursor: pointer; }
+        .note-input { width: 150px; font-size: 0.85rem; padding: 2px 5px; border: 1px solid #ced4da; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container-fluid py-4 px-4">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h2>WIFI & FEMTO Incident Dashboard</h2>
+        <ul class="nav nav-tabs" id="dashboardTabs" role="tablist">
+            <li class="nav-item" role="presentation">
+                <button class="nav-link active" id="tab1-btn" onclick="switchView(1)">หน้าหลัก (Active Cases)</button>
+            </li>
+            <li class="nav-item" role="presentation">
+                <button class="nav-link" id="tab2-btn" onclick="switchView(2)">หน้า 2 (Trend & Closed Cases)</button>
+            </li>
+        </ul>
+    </div>
+
+    <!-- ================= VIEW 1: หน้าหลัก ================= -->
+    <div id="view1">
+        <div class="row mb-3">
+            <div class="col-12 text-end">
+                <div class="metric-card d-inline-block px-4 py-2">
+                    <span class="text-muted small">Record Count (Active)</span>
+                    <div class="metric-value" id="recordCount">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="filter-section">
+            <div class="row g-3">
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small">REGION</label>
+                    <div class="dropdown-checkbox-container" id="box-filterRegion">
+                        <button type="button" class="btn dropdown-toggle-custom form-select form-select-sm" onclick="toggleDropdown('filterRegion')">-- ทั้งหมด --</button>
+                        <div class="dropdown-menu-custom" id="menu-filterRegion">
+                            <div class="form-check border-bottom pb-1 mb-1">
+                                <input class="form-check-input select-all" type="checkbox" value="all" id="all-filterRegion" checked onchange="handleSelectAll('filterRegion')">
+                                <label class="form-check-label fw-bold text-primary" for="all-filterRegion">เลือกทั้งหมด</label>
+                            </div>
+                            <div class="options-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small">TRUEOWNERGROUP</label>
+                    <div class="dropdown-checkbox-container" id="box-filterOwner">
+                        <button type="button" class="btn dropdown-toggle-custom form-select form-select-sm" onclick="toggleDropdown('filterOwner')">-- ทั้งหมด --</button>
+                        <div class="dropdown-menu-custom" id="menu-filterOwner">
+                            <div class="form-check border-bottom pb-1 mb-1">
+                                <input class="form-check-input select-all" type="checkbox" value="all" id="all-filterOwner" checked onchange="handleSelectAll('filterOwner')">
+                                <label class="form-check-label fw-bold text-primary" for="all-filterOwner">เลือกทั้งหมด</label>
+                            </div>
+                            <div class="options-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small">SEVERITY</label>
+                    <div class="dropdown-checkbox-container" id="box-filterSeverity">
+                        <button type="button" class="btn dropdown-toggle-custom form-select form-select-sm" onclick="toggleDropdown('filterSeverity')">-- ทั้งหมด --</button>
+                        <div class="dropdown-menu-custom" id="menu-filterSeverity">
+                            <div class="form-check border-bottom pb-1 mb-1">
+                                <input class="form-check-input select-all" type="checkbox" value="all" id="all-filterSeverity" checked onchange="handleSelectAll('filterSeverity')">
+                                <label class="form-check-label fw-bold text-primary" for="all-filterSeverity">เลือกทั้งหมด</label>
+                            </div>
+                            <div class="options-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label fw-bold small">ช่วงเวลา Pending</label>
+                    <div class="dropdown-checkbox-container" id="box-filterPending">
+                        <button type="button" class="btn dropdown-toggle-custom form-select form-select-sm" onclick="toggleDropdown('filterPending')">-- ทั้งหมด --</button>
+                        <div class="dropdown-menu-custom" id="menu-filterPending">
+                            <div class="form-check border-bottom pb-1 mb-1">
+                                <input class="form-check-input select-all" type="checkbox" value="all" id="all-filterPending" checked onchange="handleSelectAll('filterPending')">
+                                <label class="form-check-label fw-bold text-primary" for="all-filterPending">เลือกทั้งหมด</label>
+                            </div>
+                            <div class="options-list"></div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label fw-bold small">CATEGORIES</label>
+                    <div class="dropdown-checkbox-container" id="box-filterCategory">
+                        <button type="button" class="btn dropdown-toggle-custom form-select form-select-sm" onclick="toggleDropdown('filterCategory')">-- ทั้งหมด --</button>
+                        <div class="dropdown-menu-custom" id="menu-filterCategory">
+                            <div class="form-check border-bottom pb-1 mb-1">
+                                <input class="form-check-input select-all" type="checkbox" value="all" id="all-filterCategory" checked onchange="handleSelectAll('filterCategory')">
+                                <label class="form-check-label fw-bold text-primary" for="all-filterCategory">เลือกทั้งหมด</label>
+                            </div>
+                            <div class="options-list"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-lg-4">
+                <div class="card p-3">
+                    <h5 class="card-title fs-6 text-muted">สัดส่วนระยะเวลา Pending</h5>
+                    <div style="position: relative; height: 280px;"><canvas id="pieChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card p-3">
+                    <h5 class="card-title fs-6 text-muted">สัดส่วนแยกตาม Region</h5>
+                    <div style="position: relative; height: 280px;"><canvas id="regionPieChart"></canvas></div>
+                </div>
+            </div>
+            <div class="col-lg-4">
+                <div class="card p-3">
+                    <h5 class="card-title fs-6 text-muted">จำนวนเคสแยกตาม True Owner Group</h5>
+                    <div style="position: relative; height: 280px;"><canvas id="barChart"></canvas></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card p-3">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title fs-6 text-muted mb-0">รายการข้อมูล (Active Cases)</h5>
+                        <input type="text" id="searchInput" class="form-control form-control-sm w-25" placeholder="ค้นหาในตาราง...">
+                    </div>
+                    <div class="table-container">
+                        <table class="table table-hover table-sm text-nowrap" id="dataTable">
+                            <thead class="table-dark"><tr id="tableHeaders"></tr></thead>
+                            <tbody id="tableBody"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= VIEW 2: หน้า 2 ================= -->
+    <div id="view2" style="display: none;">
+        <div class="row mb-3">
+            <div class="col-12 text-end">
+                <div class="metric-card d-inline-block px-4 py-2 bg-light">
+                    <span class="text-muted small">Record Count (Closed / Disappeared)</span>
+                    <div class="metric-value text-danger" id="recordCount2">0</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card p-3">
+                    <h5 class="card-title fs-6 text-muted">On-going ticket trend by Aging (Daily 17:00 Snapshot)</h5>
+                    <div style="position: relative; height: 380px;">
+                        <canvas id="trendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="row">
+            <div class="col-12">
+                <div class="card p-3 border-danger">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h5 class="card-title fs-6 text-danger mb-0">รายการเคสที่หายไปจากระบบ (Closed)</h5>
+                        <input type="text" id="searchInput2" class="form-control form-control-sm w-25" placeholder="ค้นหาในตารางหน้า 2...">
+                    </div>
+                    <div class="table-container">
+                        <table class="table table-striped table-hover table-sm text-nowrap" id="dataTable2">
+                            <thead class="table-secondary"><tr id="tableHeaders2"></tr></thead>
+                            <tbody id="tableBody2"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+    // ข้อมูลตัวอย่างจำลอง (Mock Data) สำหรับทดสอบระบบบน GitHub Pages ทันที
+    const MOCK_DATA = [
+        { TICKETID: "INC001", TRUEOWNERGROUP: "TRUE-TH-WW-SOU1-WIFI", CATEGORIES: "WIFI", SEVERITY: "2", CREATIONDATE: "2026-01-15 10:00:00", SLA_Flag_Group: "Over SLA" },
+        { TICKETID: "INC002", TRUEOWNERGROUP: "TRUE-TH-WW-BMAW1-WIFI", CATEGORIES: "FEMTO", SEVERITY: "3", CREATIONDATE: "2026-10-20 14:30:00", SLA_Flag_Group: "Within SLA" },
+        { TICKETID: "INC003", TRUEOWNERGROUP: "TRUE-TH-WW-CEN1-WIFI", CATEGORIES: "WIFI", SEVERITY: "1", CREATIONDATE: "2025-05-10 08:00:00", SLA_Flag_Group: "Over SLA" },
+        { TICKETID: "INC004", TRUEOWNERGROUP: "TRUE-TH-WW-EAS1-WIFI", CATEGORIES: "WIFI", SEVERITY: "2", CREATIONDATE: "2026-10-28 09:00:00", SLA_Flag_Group: "Within SLA" }
+    ];
+
+    // หากมีไฟล์ data.json จริง สามารถเปลี่ยนลิงก์ตรงนี้ได้ (ถ้าปล่อยว่างหรือใส่ผิด ระบบจะใช้ Mock Data แทนอัตโนมัติ)
+    const API_URL = 'data.json';
+
+    let allData = [];
+    let disappearedData = [];
+    let pieChartInstance = null;
+    let regionPieChartInstance = null;
+    let barChartInstance = null;
+    let trendChartInstance = null;
+
+    const excludedColumns = [
+        'insert_time', 'LINK', 'Subimpact', 'Complaint', 
+        'Sub_Problem_2', 'Sub_Problem', 'Detail', 'Plan_Close_date', 
+        'LATITUDE', 'LONGITUDE', 'Bookmark', 'MOCN1km', 'ITSM_Event_End_Time', 
+        'EXTERNALSYSTEM_TICKETID', 'ITSM_Pending', 'EXTERNALSYSTEM', 
+        'TrackB_FSO', 'mobile_sub', 'priority_pending', 'WOA', 'SITENAME', 
+        'PROVINCE', 'SUBDISTRICT', 'DISTRICT', 'RESTORATIONDATE', 
+        'Mobile_MNP_Risk', 'Focus_Suffix', 'Class_Type_Groups', 'REPORTEDBY', 
+        'DISPLAYNAME', 'DEPARTMENT', 'Externalsystem_Flag', 'NN_ClusterID', 
+        'Tech_timestamp', 'Tech_Team', 'Tech_Status'
+    ];
+
+    const pendingRank = {
+        'มากกว่า 1 ปี': 8, '8-9 เดือน': 7, '6-7 เดือน': 6, '4-5 เดือน': 5,
+        '2-3 เดือน': 4, 'มากกว่า 1 เดือน': 3, 'น้อยกว่า 1 เดือน': 2,
+        'Pending Within SLA': 1, 'ไม่ระบุวันที่': 0
+    };
+
+    const pendingFixedOrder = ['Pending Within SLA', 'น้อยกว่า 1 เดือน', 'มากกว่า 1 เดือน', '2-3 เดือน', '4-5 เดือน', '6-7 เดือน', '8-9 เดือน', 'มากกว่า 1 ปี'];
+
+    function initDashboard() {
+        fetch(API_URL)
+            .then(response => {
+                if (!response.ok) throw new Error('File not found');
+                return response.json();
+            })
+            .then(data => {
+                onDataLoaded(data);
+            })
+            .catch(error => {
+                console.warn('Using Mock Data due to:', error.message);
+                onDataLoaded(MOCK_DATA); // ใช้ข้อมูลจำลองถ้ายังไม่มีไฟล์ data.json
+            });
+    }
+
+    function switchView(viewNum) {
+        if (viewNum === 1) {
+            document.getElementById('view1').style.display = 'block';
+            document.getElementById('view2').style.display = 'none';
+            document.getElementById('tab1-btn').classList.add('active');
+            document.getElementById('tab2-btn').classList.remove('active');
+        } else {
+            document.getElementById('view1').style.display = 'none';
+            document.getElementById('view2').style.display = 'block';
+            document.getElementById('tab1-btn').classList.remove('active');
+            document.getElementById('tab2-btn').classList.add('active');
+            renderTable2(disappearedData);
+            renderTrendChartFromSnapshot();
+        }
+    }
+
+    function getRegionGroup(ownerGroup) {
+        if (!ownerGroup) return 'Other Region';
+        const owner = ownerGroup.toUpperCase();
+        if (owner.includes('SOU')) return 'UPC South';
+        if (owner.includes('BMAW')) return 'BMA West';
+        if (owner.includes('SMP') || owner.includes('BMAE')) return 'BMA East';
+        if (owner.includes('EAS')) return 'UPC East';
+        if (owner.includes('CEN') || owner.includes('WES')) return 'UPC Central & West';
+        return 'Other Region';
+    }
+
+    function onDataLoaded(result) {
+        try {
+            if (result.error) {
+                alert('API Error: ' + result.error);
+                return;
+            }
+
+            const now = new Date();
+            let userNotes = {};
+            try {
+                userNotes = JSON.parse(localStorage.getItem('wifi_femto_user_notes') || '{}');
+            } catch(e) {}
+
+            const seenTickets = new Set();
+            const filteredRaw = result.filter(row => {
+                const owner = getVal(row, 'TRUEOWNERGROUP').toUpperCase();
+                const category = getVal(row, 'CATEGORIES').toUpperCase();
+                const isWW = owner.includes('WW');
+                const isWifiOrFemto = category.includes('WIFI') || category.includes('FEMTO');
+                
+                if (!(isWW && isWifiOrFemto)) return false;
+
+                const tid = getVal(row, 'TICKETID');
+                if (!tid) return true;
+                if (seenTickets.has(tid)) return false;
+                seenTickets.add(tid);
+                return true;
+            }).map(row => {
+                const ownerGroup = getVal(row, 'TRUEOWNERGROUP');
+                row['Region'] = getRegionGroup(ownerGroup);
+
+                const tid = getVal(row, 'TICKETID');
+                row['User_Note'] = userNotes[tid] || '';
+
+                const slaFlag = getVal(row, 'SLA_Flag_Group');
+                let pendingGroup = '';
+                if (slaFlag && slaFlag.toLowerCase().includes('within sla')) {
+                    pendingGroup = 'Pending Within SLA';
+                } else {
+                    pendingGroup = calculatePendingGroup(getVal(row, 'CREATIONDATE'), now);
+                }
+                row['Pending_Duration'] = pendingGroup;
+                return row;
+            });
+
+            saveDailySnapshot(filteredRaw);
+
+            const currentTicketMap = {};
+            filteredRaw.forEach(r => {
+                const tid = getVal(r, 'TICKETID');
+                if (tid) currentTicketMap[tid] = r;
+            });
+
+            let savedHistory = {};
+            let savedDisappeared = {};
+            try {
+                savedHistory = JSON.parse(localStorage.getItem('wifi_femto_ticket_history') || '{}');
+                savedDisappeared = JSON.parse(localStorage.getItem('wifi_femto_disappeared') || '{}');
+            } catch(err) {}
+
+            let todayStr = new Date().toISOString().substring(0, 10);
+
+            Object.keys(savedHistory).forEach(tid => {
+                if (!currentTicketMap[tid] && !savedDisappeared[tid]) {
+                    let item = savedHistory[tid];
+                    item['User_Note'] = userNotes[tid] || item['User_Note'] || '';
+                    item['Closed_Date'] = todayStr;
+                    savedDisappeared[tid] = item;
+                }
+            });
+
+            localStorage.setItem('wifi_femto_ticket_history', JSON.stringify(currentTicketMap));
+            localStorage.setItem('wifi_femto_disappeared', JSON.stringify(savedDisappeared));
+
+            allData = filteredRaw;
+            disappearedData = Object.values(savedDisappeared);
+
+            allData.sort((a, b) => (pendingRank[b['Pending_Duration']] || 0) - (pendingRank[a['Pending_Duration']] || 0));
+
+            if (allData.length === 0) {
+                alert('ไม่พบข้อมูลที่ตรงกับเงื่อนไขในระบบ');
+                return;
+            }
+
+            populateDropdowns(allData);
+            filterData();
+
+        } catch (e) {
+            alert('Data Process Error: ' + e.message);
+        }
+    }
+
+    function saveNote(ticketId, value) {
+        try {
+            let userNotes = JSON.parse(localStorage.getItem('wifi_femto_user_notes') || '{}');
+            userNotes[ticketId] = value;
+            localStorage.setItem('wifi_femto_user_notes', JSON.stringify(userNotes));
+
+            let target = allData.find(r => getVal(r, 'TICKETID') === ticketId);
+            if (target) target['User_Note'] = value;
+            let target2 = disappearedData.find(r => getVal(r, 'TICKETID') === ticketId);
+            if (target2) target2['User_Note'] = value;
+        } catch(e) {}
+    }
+
+    function saveDailySnapshot(dataList) {
+        try {
+            let now = new Date();
+            let dateStr = now.toISOString().substring(0, 10);
+            let countsByAging = {
+                'Pending Within SLA': 0, 'น้อยกว่า 1 เดือน': 0, 'มากกว่า 1 เดือน': 0,
+                '2-3 เดือน': 0, '4-5 เดือน': 0, '6-7 เดือน': 0, '8-9 เดือน': 0, 'มากกว่า 1 ปี': 0
+            };
+
+            dataList.forEach(r => {
+                let pGroup = r['Pending_Duration'] || 'น้อยกว่า 1 เดือน';
+                if (countsByAging[pGroup] !== undefined) countsByAging[pGroup]++;
+            });
+
+            let snapshots = JSON.parse(localStorage.getItem('wifi_femto_daily_snapshots') || '{}');
+            snapshots[dateStr] = countsByAging;
+            localStorage.setItem('wifi_femto_daily_snapshots', JSON.stringify(snapshots));
+        } catch(e) {}
+    }
+
+    function calculatePendingGroup(dateStr, now) {
+        if (!dateStr) return 'ไม่ระบุวันที่';
+        let parsedDate = parseCustomDate(dateStr);
+        if (!parsedDate || isNaN(parsedDate)) return 'ไม่ระบุวันที่';
+
+        const diffTime = now - parsedDate;
+        if (diffTime < 0) return 'น้อยกว่า 1 เดือน';
+
+        const diffDays = diffTime / (1000 * 60 * 60 * 24);
+        const diffMonths = diffDays / 30.4375; 
+        const diffYears = diffDays / 365.25;
+
+        if (diffYears >= 1) return 'มากกว่า 1 ปี';
+        if (diffMonths >= 8) return '8-9 เดือน';
+        if (diffMonths >= 6) return '6-7 เดือน';
+        if (diffMonths >= 4) return '4-5 เดือน';
+        if (diffMonths >= 2) return '2-3 เดือน';
+        if (diffMonths >= 1) return 'มากกว่า 1 เดือน';
+        return 'น้อยกว่า 1 เดือน';
+    }
+
+    function parseCustomDate(str) {
+        if (!str) return null;
+        let cleanStr = str.toString().trim();
+        let d = new Date(cleanStr);
+        if (!isNaN(d)) return d;
+
+        const thaiMonths = { 'ม.ค.':'01', 'ก.พ.':'02', 'มี.ค.':'03', 'เม.ย.':'04', 'พ.ค.':'05', 'มิ.ย.':'06', 'ก.ค.':'07', 'ส.ค.':'08', 'ก.ย.':'09', 'ต.ค.':'10', 'พ.ย.':'11', 'ธ.ค.':'12' };
+        for (let tM in thaiMonths) {
+            if (cleanStr.includes(tM)) { cleanStr = cleanStr.replace(tM, thaiMonths[tM]); break; }
+        }
+        let parsed = new Date(cleanStr);
+        return isNaN(parsed) ? null : parsed;
+    }
+
+    function onDataError(err) { alert('โหลดข้อมูลไม่สำเร็จ: ' + err); }
+
+    function populateDropdowns(targetData) {
+        const currentSelectedRegions = getCheckedValues('filterRegion');
+        const currentSelectedOwners = getCheckedValues('filterOwner');
+        const currentSelectedSeverities = getCheckedValues('filterSeverity');
+        const currentSelectedPendings = getCheckedValues('filterPending');
+        const currentSelectedCategories = getCheckedValues('filterCategory');
+
+        const regions = [...new Set(targetData.map(r => r['Region']))].filter(Boolean).sort();
+        const owners = [...new Set(targetData.map(r => getVal(r, 'TRUEOWNERGROUP')))].filter(Boolean).sort();
+        const severities = [...new Set(targetData.map(r => r['SEVERITY']))].filter(Boolean).sort();
+        const categories = [...new Set(targetData.map(r => getVal(r, 'CATEGORIES')))].filter(Boolean).sort();
+        const pendings = pendingFixedOrder.filter(p => targetData.some(r => r['Pending_Duration'] === p));
+
+        createCheckboxes('filterRegion', regions, currentSelectedRegions);
+        createCheckboxes('filterOwner', owners, currentSelectedOwners);
+        createCheckboxes('filterSeverity', severities, currentSelectedSeverities);
+        createCheckboxes('filterPending', pendings, currentSelectedPendings);
+        createCheckboxes('filterCategory', categories, currentSelectedCategories);
+    }
+
+    function getCheckedValues(id) {
+        const container = document.getElementById(`box-${id}`);
+        if (!container) return null;
+        const selectAllCheckbox = container.querySelector('.select-all');
+        if (selectAllCheckbox && selectAllCheckbox.checked && !container.dataset.userModified) {
+            return null;
+        }
+        const itemCheckboxes = container.querySelectorAll('.item-checkbox');
+        if (itemCheckboxes.length === 0) return null;
+        const checked = Array.from(itemCheckboxes).filter(cb => cb.checked);
+        if (checked.length === 0) return [];
+        if (checked.length === itemCheckboxes.length) return null;
+        return checked.map(cb => cb.value);
+    }
+
+    function createCheckboxes(id, values, previousSelected) {
+        const container = document.getElementById(`box-${id}`);
+        if (!container) return;
+        const optionsList = container.querySelector('.options-list');
+        optionsList.innerHTML = '';
+
+        values.forEach((val, index) => {
+            let isChecked = true;
+            if (previousSelected !== null && previousSelected !== undefined) {
+                isChecked = previousSelected.includes(val);
+            }
+            const div = document.createElement('div');
+            div.className = 'form-check';
+            div.innerHTML = `
+                <input class="form-check-input item-checkbox" type="checkbox" value="${val}" id="${id}-${index}" ${isChecked ? 'checked' : ''} onchange="handleItemChange('${id}')">
+                <label class="form-check-label text-truncate" style="font-size: 0.8rem;" for="${id}-${index}" title="${val}">${val}</label>
+            `;
+            optionsList.appendChild(div);
+        });
+
+        const allCheckbox = container.querySelector('.select-all');
+        const itemCheckboxes = optionsList.querySelectorAll('.item-checkbox');
+        if (allCheckbox) {
+            allCheckbox.checked = itemCheckboxes.length > 0 && Array.from(itemCheckboxes).every(cb => cb.checked);
+        }
+
+        updateButtonText(id);
+    }
+
+    function toggleDropdown(id) {
+        const menu = document.getElementById(`menu-${id}`);
+        document.querySelectorAll('.dropdown-menu-custom').forEach(m => {
+            if (m.id !== `menu-${id}`) m.classList.remove('show');
+        });
+        menu.classList.toggle('show');
+    }
+
+    window.addEventListener('click', function(e) {
+        if (!e.target.closest('.dropdown-checkbox-container')) {
+            document.querySelectorAll('.dropdown-menu-custom').forEach(m => m.classList.remove('show'));
+        }
+    });
+
+    function handleSelectAll(id) {
+        const container = document.getElementById(`box-${id}`);
+        container.dataset.userModified = 'true';
+        const selectAllCheckbox = container.querySelector('.select-all');
+        container.querySelectorAll('.item-checkbox').forEach(cb => cb.checked = selectAllCheckbox.checked);
+        updateButtonText(id);
+        filterData();
+    }
+
+    function handleItemChange(id) {
+        const container = document.getElementById(`box-${id}`);
+        container.dataset.userModified = 'true';
+        const selectAllCheckbox = container.querySelector('.select-all');
+        const itemCheckboxes = container.querySelectorAll('.item-checkbox');
+        if (selectAllCheckbox && itemCheckboxes.length > 0) {
+            selectAllCheckbox.checked = Array.from(itemCheckboxes).every(cb => cb.checked);
+        }
+        updateButtonText(id);
+        filterData();
+    }
+
+    function updateButtonText(id) {
+        const container = document.getElementById(`box-${id}`);
+        const itemCheckboxes = container.querySelectorAll('.item-checkbox');
+        const btn = container.querySelector('.dropdown-toggle-custom');
+        if (!btn || itemCheckboxes.length === 0) return;
+        const checkedCount = Array.from(itemCheckboxes).filter(cb => cb.checked).length;
+        
+        if (checkedCount === 0) {
+            btn.innerText = '-- ไม่ได้เลือก --';
+        } else if (checkedCount === itemCheckboxes.length) {
+            btn.innerText = '-- ทั้งหมด --';
+        } else {
+            btn.innerText = `เลือกแล้ว (${checkedCount} รายการ)`;
+        }
+    }
+
+    function getSelectedValues(id) {
+        const container = document.getElementById(`box-${id}`);
+        const itemCheckboxes = container.querySelectorAll('.item-checkbox');
+        if (itemCheckboxes.length === 0) return null;
+        const checked = Array.from(itemCheckboxes).filter(cb => cb.checked);
+        if (checked.length === 0) return [];
+        if (checked.length === itemCheckboxes.length) return null;
+        return checked.map(cb => cb.value);
+    }
+
+    function getVal(row, keyName) {
+        const key = Object.keys(row).find(k => k.toUpperCase() === keyName.toUpperCase());
+        return key && row[key] !== null && row[key] !== undefined ? String(row[key]).trim() : '';
+    }
+
+    function filterData() {
+        const selectedRegions = getSelectedValues('filterRegion');
+        const selectedOwners = getSelectedValues('filterOwner');
+        const selectedSeverities = getSelectedValues('filterSeverity');
+        const selectedPendings = getSelectedValues('filterPending');
+        const selectedCategories = getSelectedValues('filterCategory');
+
+        const filtered = allData.filter(row => {
+            const matchRegion = selectedRegions === null || (Array.isArray(selectedRegions) && selectedRegions.includes(row['Region']));
+            const matchOwner = selectedOwners === null || (Array.isArray(selectedOwners) && selectedOwners.includes(getVal(row, 'TRUEOWNERGROUP')));
+            const matchSev = selectedSeverities === null || (Array.isArray(selectedSeverities) && selectedSeverities.includes(getVal(row, 'SEVERITY')));
+            const matchPending = selectedPendings === null || (Array.isArray(selectedPendings) && selectedPendings.includes(row['Pending_Duration']));
+            const matchCat = selectedCategories === null || (Array.isArray(selectedCategories) && selectedCategories.includes(getVal(row, 'CATEGORIES')));
+
+            return matchRegion && matchOwner && matchSev && matchPending && matchCat;
+        });
+
+        filtered.sort((a, b) => (pendingRank[b['Pending_Duration']] || 0) - (pendingRank[a['Pending_Duration']] || 0));
+
+        updateDependentDropdowns(filtered, selectedRegions);
+        updateDashboard(filtered);
+    }
+
+    function updateDependentDropdowns(filteredData, selectedRegions) {
+        let ownerSourceData = selectedRegions === null ? allData : allData.filter(r => selectedRegions.includes(r['Region']));
+        
+        const owners = [...new Set(ownerSourceData.map(r => getVal(r, 'TRUEOWNERGROUP')))].filter(Boolean).sort();
+        const severities = [...new Set(filteredData.map(r => getVal(r, 'SEVERITY')))].filter(Boolean).sort();
+        const categories = [...new Set(filteredData.map(r => getVal(r, 'CATEGORIES')))].filter(Boolean).sort();
+        const pendings = pendingFixedOrder.filter(p => filteredData.some(r => r['Pending_Duration'] === p));
+
+        createCheckboxes('filterOwner', owners, getCheckedValues('filterOwner'));
+        createCheckboxes('filterSeverity', severities, getCheckedValues('filterSeverity'));
+        createCheckboxes('filterPending', pendings, getCheckedValues('filterPending'));
+        createCheckboxes('filterCategory', categories, getCheckedValues('filterCategory'));
+    }
+
+    const searchInputElem = document.getElementById('searchInput');
+    if (searchInputElem) {
+        searchInputElem.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            document.querySelectorAll('#tableBody tr').forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        });
+    }
+
+    const searchInput2Elem = document.getElementById('searchInput2');
+    if (searchInput2Elem) {
+        searchInput2Elem.addEventListener('keyup', function() {
+            const filter = this.value.toLowerCase();
+            document.querySelectorAll('#tableBody2 tr').forEach(row => {
+                row.style.display = row.innerText.toLowerCase().includes(filter) ? '' : 'none';
+            });
+        });
+    }
+
+    function updateDashboard(data) {
+        const recordCountElem = document.getElementById('recordCount');
+        if (recordCountElem) recordCountElem.innerText = data.length;
+
+        const pendingCounts = {};
+        pendingFixedOrder.forEach(p => { pendingCounts[p] = 0; });
+        data.forEach(r => {
+            const pGroup = r['Pending_Duration'] || 'ไม่ระบุวันที่';
+            if (pendingCounts[pGroup] !== undefined) pendingCounts[pGroup]++;
+        });
+
+        const regionCounts = {};
+        data.forEach(r => {
+            const reg = r['Region'] || 'Other Region';
+            regionCounts[reg] = (regionCounts[reg] || 0) + 1;
+        });
+
+        const ownerCounts = {};
+        data.forEach(r => {
+            const owner = getVal(r, 'TRUEOWNERGROUP') || 'N/A';
+            ownerCounts[owner] = (ownerCounts[owner] || 0) + 1;
+        });
+
+        renderPieChart(Object.keys(pendingCounts), Object.values(pendingCounts));
+        renderRegionPieChart(Object.keys(regionCounts), Object.values(regionCounts));
+        renderBarChart(Object.keys(ownerCounts), Object.values(ownerCounts));
+        renderTable(data);
+    }
+
+    function renderPieChart(labels, values) {
+        const ctx = document.getElementById('pieChart');
+        if (!ctx) return;
+        if (pieChartInstance) pieChartInstance.destroy();
+        pieChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'pie',
+            data: { labels, datasets: [{ data: values, backgroundColor: ['#198754', '#adb5bd', '#0d6efd', '#ffc107', '#fd7e14', '#dc3545', '#ea868f', '#b02a37'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' }, legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } },
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    function renderRegionPieChart(labels, values) {
+        const ctx = document.getElementById('regionPieChart');
+        if (!ctx) return;
+        if (regionPieChartInstance) regionPieChartInstance.destroy();
+        regionPieChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'pie',
+            data: { labels, datasets: [{ data: values, backgroundColor: ['#0dcaf0', '#fd7e14', '#6610f2', '#20c997', '#ffc107', '#d63384'] }] },
+            options: { responsive: true, maintainAspectRatio: false, plugins: { datalabels: { color: '#fff', font: { weight: 'bold', size: 11 }, formatter: (v) => v > 0 ? v : '' }, legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } } } },
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    function renderBarChart(labels, values) {
+        const ctx = document.getElementById('barChart');
+        if (!ctx) return;
+        if (barChartInstance) barChartInstance.destroy();
+        barChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: { labels, datasets: [{ label: 'จำนวนเคส', data: values, backgroundColor: '#0d6efd' }] },
+            options: { responsive: true, maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }, plugins: { datalabels: { display: false }, legend: { display: false } } },
+            plugins: [ChartDataLabels]
+        });
+    }
+
+    function renderTrendChartFromSnapshot() {
+        const ctx = document.getElementById('trendChart');
+        if (!ctx) return;
+        if (trendChartInstance) trendChartInstance.destroy();
+
+        let labels = [];
+        let snapshots = {};
+        try {
+            snapshots = JSON.parse(localStorage.getItem('wifi_femto_daily_snapshots') || '{}');
+        } catch(e) {}
+
+        let today = new Date();
+        for (let i = 13; i >= 0; i--) {
+            let d = new Date(today);
+            d.setDate(today.getDate() - i);
+            let dateString = d.toISOString().substring(0, 10);
+            labels.push(dateString);
+        }
+
+        let datasetsData = {};
+        pendingFixedOrder.forEach(p => {
+            datasetsData[p] = labels.map(dateStr => {
+                if (snapshots[dateStr] && snapshots[dateStr][p] !== undefined) {
+                    return snapshots[dateStr][p];
+                }
+                return 0;
+            });
+        });
+
+        let totalPerDay = labels.map(dateStr => {
+            if (!snapshots[dateStr]) return 0;
+            return pendingFixedOrder.reduce((sum, p) => sum + (snapshots[dateStr][p] || 0), 0);
+        });
+
+        let movingAvg7 = totalPerDay.map((val, idx, arr) => {
+            let start = Math.max(0, idx - 6);
+            let slice = arr.slice(start, idx + 1);
+            let nonZeroSlice = slice.filter(v => v > 0);
+            if (nonZeroSlice.length === 0) return 0;
+            return (nonZeroSlice.reduce((a,b)=>a+b, 0) / nonZeroSlice.length).toFixed(1);
+        });
+
+        const totalLabelsPlugin = {
+            id: 'totalLabelsPlugin',
+            afterDatasetsDraw(chart) {
+                const { ctx } = chart;
+                ctx.save();
+                ctx.font = 'bold 11px sans-serif';
+                ctx.fillStyle = '#000000';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'bottom';
+
+                chart.getDatasetMeta(0).data.forEach((bar, index) => {
+                    let total = 0;
+                    chart.data.datasets.forEach((dataset) => {
+                        if (dataset.type !== 'line' && dataset.data[index]) {
+                            total += Number(dataset.data[index]) || 0;
+                        }
+                    });
+
+                    if (total > 0) {
+                        const dataX = bar.x;
+                        let topmostY = bar.y;
+                        chart.data.datasets.forEach((dataset, datasetIndex) => {
+                            if (dataset.type !== 'line') {
+                                const meta = chart.getDatasetMeta(datasetIndex);
+                                if (meta.data[index] && meta.data[index].y < topmostY) {
+                                    topmostY = meta.data[index].y;
+                                }
+                            }
+                        });
+                        ctx.fillText(total, dataX, topmostY - 5);
+                    }
+                });
+                ctx.restore();
+            }
+        };
+
+        trendChartInstance = new Chart(ctx.getContext('2d'), {
+            type: 'bar',
+            data: {
+                labels: labels,
+                datasets: [
+                    { label: 'มากกว่า 1 ปี', data: datasetsData['มากกว่า 1 ปี'], backgroundColor: '#b02a37', stack: 'stack0' },
+                    { label: '8-9 เดือน', data: datasetsData['8-9 เดือน'], backgroundColor: '#ea868f', stack: 'stack0' },
+                    { label: '6-7 เดือน', data: datasetsData['6-7 เดือน'], backgroundColor: '#dc3545', stack: 'stack0' },
+                    { label: '4-5 เดือน', data: datasetsData['4-5 เดือน'], backgroundColor: '#fd7e14', stack: 'stack0' },
+                    { label: '2-3 เดือน', data: datasetsData['2-3 เดือน'], backgroundColor: '#ffc107', stack: 'stack0' },
+                    { label: 'มากกว่า 1 เดือน', data: datasetsData['มากกว่า 1 เดือน'], backgroundColor: '#0d6efd', stack: 'stack0' },
+                    { label: 'น้อยกว่า 1 เดือน', data: datasetsData['น้อยกว่า 1 เดือน'], backgroundColor: '#adb5bd', stack: 'stack0' },
+                    { label: 'Pending Within SLA', data: datasetsData['Pending Within SLA'], backgroundColor: '#198754', stack: 'stack0' },
+                    { 
+                        label: 'Moving Avg 7 Days', 
+                        data: movingAvg7, 
+                        type: 'line', 
+                        borderColor: '#ffc107', 
+                        borderWidth: 2, 
+                        borderDash: [5,5], 
+                        pointRadius: 2,
+                        fill: false,
+                        yAxisID: 'y'
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: { stacked: true, grid: { display: false } },
+                    y: { stacked: true, beginAtZero: true, suggestedMax: 1000 }
+                },
+                plugins: {
+                    datalabels: {
+                        color: '#fff',
+                        font: { weight: 'bold', size: 10 },
+                        display: function(context) {
+                            return context.dataset.data[context.dataIndex] > 0;
+                        },
+                        formatter: function(value) {
+                            return value;
+                        }
+                    },
+                    legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } }
+                }
+            },
+            plugins: [ChartDataLabels, totalLabelsPlugin]
+        });
+    }
+
+    function getRowClass(pendingGroup) {
+        switch (pendingGroup) {
+            case 'Pending Within SLA': return 'row-pending-within';
+            case 'น้อยกว่า 1 เดือน': return 'row-pending-less1';
+            case 'มากกว่า 1 เดือน': return 'row-pending-1mo';
+            case '2-3 เดือน': return 'row-pending-2mo';
+            case '4-5 เดือน': return 'row-pending-4mo';
+            case '6-7 เดือน': return 'row-pending-6mo';
+            case '8-9 เดือน': return 'row-pending-8mo';
+            case 'มากกว่า 1 ปี': return 'row-pending-1year';
+            default: return '';
+        }
+    }
+
+    function renderTable(data) {
+        const headerRow = document.getElementById('tableHeaders');
+        const tbody = document.getElementById('tableBody');
+        if (!headerRow || !tbody) return;
+        headerRow.innerHTML = ''; tbody.innerHTML = '';
+        if (data.length === 0) { tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted">ไม่พบข้อมูลตามเงื่อนไข</td></tr>'; return; }
+
+        let headers = Object.keys(data[0]).filter(h => h !== 'Pending_Duration' && h !== 'Region' && h !== 'User_Note' && h !== 'Closed_Date' && !excludedColumns.includes(h));
+        
+        headers.unshift('TICKETID');
+        headers.unshift('Region');
+        headers.unshift('Pending_Duration');
+        headers.unshift('Note');
+
+        headers.forEach(h => { 
+            const th = document.createElement('th'); 
+            th.innerText = h === 'Note' ? 'บันทึกข้อความ (Note)' : h; 
+            headerRow.appendChild(th); 
+        });
+
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            tr.className = getRowClass(row['Pending_Duration']);
+            
+            headers.forEach(h => {
+                const td = document.createElement('td');
+                if (h === 'Note') {
+                    const tid = getVal(row, 'TICKETID');
+                    const currentNote = row['User_Note'] || '';
+                    td.innerHTML = `<input type="text" class="note-input" value="${currentNote}" placeholder="พิมพ์บันทึก..." oninput="saveNote('${tid}', this.value)">`;
+                } else {
+                    td.innerText = row[h] !== undefined && row[h] !== null ? row[h] : '';
+                    if (h === 'Pending_Duration' || h === 'Region' || h === 'TICKETID') td.style.fontWeight = 'bold';
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    function renderTable2(data) {
+        const headerRow = document.getElementById('tableHeaders2');
+        const tbody = document.getElementById('tableBody2');
+        const countElem = document.getElementById('recordCount2');
+        if (!headerRow || !tbody) return;
+        headerRow.innerHTML = ''; tbody.innerHTML = '';
+        if (countElem) countElem.innerText = data.length;
+
+        if (data.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="15" class="text-center text-muted">ยังไม่พบรายการเคสที่หายไปจากระบบ</td></tr>';
+            return;
+        }
+
+        let headers = Object.keys(data[0]).filter(h => h !== 'Pending_Duration' && h !== 'Region' && h !== 'User_Note' && h !== 'Closed_Date' && !excludedColumns.includes(h));
+        
+        headers.unshift('Closed_Date');
+        headers.unshift('TICKETID');
+        headers.unshift('Region');
+        headers.unshift('Pending_Duration');
+        headers.unshift('Note');
+
+        headers.forEach(h => { 
+            const th = document.createElement('th'); 
+            if (h === 'Note') th.innerText = 'บันทึกข้อความ (Note)';
+            else if (h === 'Closed_Date') th.innerText = 'วันที่ปิดเคส (Closed Date)';
+            else th.innerText = h; 
+            headerRow.appendChild(th); 
+        });
+
+        data.forEach(row => {
+            const tr = document.createElement('tr');
+            headers.forEach(h => {
+                const td = document.createElement('td');
+                if (h === 'Note') {
+                    const tid = getVal(row, 'TICKETID');
+                    const currentNote = row['User_Note'] || '';
+                    td.innerHTML = `<input type="text" class="note-input" value="${currentNote}" placeholder="พิมพ์บันทึก..." oninput="saveNote('${tid}', this.value)">`;
+                } else if (h === 'Closed_Date') {
+                    td.innerText = row['Closed_Date'] || '-';
+                    td.style.fontWeight = 'bold';
+                    td.style.color = '#dc3545';
+                } else {
+                    td.innerText = row[h] !== undefined && row[h] !== null ? row[h] : '';
+                }
+                tr.appendChild(td);
+            });
+            tbody.appendChild(tr);
+        });
+    }
+
+    initDashboard();
+</script>
+
+</body>
+</html>
